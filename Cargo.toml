@@ -1,0 +1,16 @@
+[package]
+name = "prometheus-bcachefs-exporter"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.86"
+axum = "0.7.5"
+clap = { version = "4.5.16", features = ["derive", "env"] }
+http = "1.1.0"
+human-size = "0.4.3"
+prometheus = { version = "0.13.4", default-features = false }
+tokio = { version = "1.40.0", default-features = false, features = ["macros", "rt"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+uuid = "1.10.0"
