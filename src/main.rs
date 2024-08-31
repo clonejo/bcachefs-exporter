@@ -204,19 +204,24 @@ impl Device<'_> {
                 break;
             }
             let cells: Vec<_> = line.split_whitespace().collect();
-            let &[type_, _buckets, sectors, _fragmented] = &cells[..] else {
-                panic!()
-            };
-            // Apparently the sectors are always 2<<9 = 512 bytes. Even when the disk runs with 4k
-            // sectors.
-            let bytes = (sectors.parse::<usize>()? << 9) as f64;
-            let mut labels = device_labels.clone();
-            labels.push(("type", type_.to_string()));
-            metrics.push(Metric {
-                name: "bcachefs_dev_alloc_bytes",
-                labels,
-                value: bytes,
-            });
+            match &cells[..] {
+                &[type_, _buckets, sectors, _fragmented] => {
+                    // Apparently the sectors are always 2<<9 = 512 bytes. Even when the disk runs
+                    // with 4k sectors.
+                    let bytes = (sectors.parse::<usize>()? << 9) as f64;
+                    let mut labels = device_labels.clone();
+                    labels.push(("type", type_.to_string()));
+                    metrics.push(Metric {
+                        name: "bcachefs_dev_alloc_bytes",
+                        labels,
+                        value: bytes,
+                    });
+                }
+                &["capacity", _buckets] => {}
+                _ => {
+                    panic!("can't handle line {line}")
+                }
+            }
         }
         Ok(metrics)
     }
