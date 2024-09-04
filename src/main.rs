@@ -206,18 +206,21 @@ impl Device<'_> {
             let cells: Vec<_> = line.split_whitespace().collect();
             match &cells[..] {
                 &[type_, _buckets, sectors, _fragmented] => {
-                    // Apparently the sectors are always 2<<9 = 512 bytes. Even when the disk runs
-                    // with 4k sectors.
-                    let bytes = (sectors.parse::<usize>()? << 9) as f64;
                     let mut labels = device_labels.clone();
                     labels.push(("type", type_.to_string()));
                     metrics.push(Metric {
                         name: "bcachefs_dev_alloc_bytes",
                         labels,
-                        value: bytes,
+                        value: sectors_to_bytes(sectors)?,
                     });
                 }
-                &["capacity", _buckets] => {}
+                &["capacity", buckets] => {
+                    metrics.push(Metric {
+                        name: "bcachefs_dev_capacity",
+                        labels: device_labels.to_vec(),
+                        value: self.buckets_to_bytes(buckets)?,
+                    });
+                }
                 _ => {
                     panic!("can't handle line {line}")
                 }
@@ -225,4 +228,21 @@ impl Device<'_> {
         }
         Ok(metrics)
     }
+
+    fn bucket_size(&self) -> Result<usize> {
+        Ok(std::fs::read_to_string(self.path().join("bucket_size"))
+            .with_context(|| "reading dev-$x/bucket_size")?
+            .trim()
+            .parse()?)
+    }
+    fn buckets_to_bytes(&self, sectors: &str) -> Result<f64> {
+        let sectors: usize = sectors.parse()?;
+        let bucket_size = self.bucket_size()?;
+        Ok((bucket_size * sectors) as f64)
+    }
+}
+
+fn sectors_to_bytes(sectors: &str) -> Result<f64> {
+    // Apparently the sectors are always 2<<9 = 512 bytes. Even when the disk runs with 4k sectors.
+    Ok((sectors.parse::<usize>()? << 9) as f64)
 }
