@@ -4,6 +4,7 @@ use axum::{
     routing::get,
     Router,
 };
+use byte_unit::Byte;
 use clap::Parser;
 use http::{header, status::StatusCode};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -57,7 +58,7 @@ where
 // Tell axum how to convert `AppError` into a response.
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        eprintln!("{:#}", self.0);
+        eprintln!("{:#?}", self.0);
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("Something went wrong: {:#}", self.0),
@@ -149,7 +150,11 @@ impl Fs {
             if !file_name.starts_with("dev-") {
                 continue;
             }
-            let device_no: usize = file_name.strip_prefix("dev-").unwrap().parse()?;
+            let device_no: usize = file_name
+                .strip_prefix("dev-")
+                .unwrap()
+                .parse()
+                .with_context(|| format!("file_name={file_name:?}"))?;
             devices.push(Device {
                 fs: self,
                 device_no,
@@ -229,14 +234,17 @@ impl Device<'_> {
         Ok(metrics)
     }
 
-    fn bucket_size(&self) -> Result<usize> {
-        Ok(std::fs::read_to_string(self.path().join("bucket_size"))
-            .with_context(|| "reading dev-$x/bucket_size")?
-            .trim()
-            .parse()?)
+    fn bucket_size(&self) -> Result<u64> {
+        let file_content = std::fs::read_to_string(self.path().join("bucket_size"))
+            .with_context(|| "reading dev-$x/bucket_size")?;
+        Ok(Byte::parse_str(&file_content, true)
+            .with_context(|| format!("file_content={file_content:?}"))?
+            .as_u64())
     }
     fn buckets_to_bytes(&self, sectors: &str) -> Result<f64> {
-        let sectors: usize = sectors.parse()?;
+        let sectors: u64 = sectors
+            .parse()
+            .with_context(|| format!("sectors={sectors:?}"))?;
         let bucket_size = self.bucket_size()?;
         Ok((bucket_size * sectors) as f64)
     }
@@ -244,5 +252,8 @@ impl Device<'_> {
 
 fn sectors_to_bytes(sectors: &str) -> Result<f64> {
     // Apparently the sectors are always 2<<9 = 512 bytes. Even when the disk runs with 4k sectors.
-    Ok((sectors.parse::<usize>()? << 9) as f64)
+    Ok((sectors
+        .parse::<usize>()
+        .with_context(|| format!("sectors={sectors:?}"))?
+        << 9) as f64)
 }
