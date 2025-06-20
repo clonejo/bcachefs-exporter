@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.86"
-axum = "0.7.5"
+axum = "0.8.4"
 byte-unit = "5.1.6"
 clap = { version = "4.5.16", features = ["derive", "env"] }
 env_logger = "0.11.8"
