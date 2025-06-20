@@ -12,3 +12,6 @@ Tested with Linux kernel 6.15.1.
   - capacity
 
 The Grafana dashboard also shows some disk IO stats with each device, collected by [node_exporter](https://github.com/prometheus/node_exporter).
+
+## Alternatives
+- <https://github.com/ticpu/tools/blob/master/bcachefs-prometheus-exporter.py>
