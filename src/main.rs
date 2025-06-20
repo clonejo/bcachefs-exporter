@@ -222,7 +222,7 @@ impl Device<'_> {
                 ["capacity", buckets] => {
                     metrics.push(Metric {
                         name: "bcachefs_dev_capacity",
-                        labels: device_labels.to_vec(),
+                        labels: device_labels.clone(),
                         value: self.buckets_to_bytes(buckets)?,
                     });
                 }
