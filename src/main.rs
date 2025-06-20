@@ -1,3 +1,5 @@
+#![warn(clippy::unwrap_used)]
+
 use anyhow::{Context, Result};
 use axum::{
     response::{IntoResponse, Response},
@@ -39,8 +41,10 @@ pub(crate) async fn serve(listen: &SocketAddr) {
     let app = Router::new().route("/metrics", get(http_metrics));
 
     // run it
-    let listener = tokio::net::TcpListener::bind(listen).await.unwrap();
-    tracing::debug!("listening on {}", listener.local_addr().unwrap());
+    let listener = tokio::net::TcpListener::bind(listen)
+        .await
+        .expect("Could not bind to socket.");
+    tracing::info!("opening socket on {:?}", listener.local_addr());
     axum::serve(listener, app).await.unwrap();
 }
 
@@ -122,7 +126,7 @@ const SYSFS_BCACHEFS_ROOT: &str = "/sys/fs/bcachefs";
 fn find_bcachefs() -> Result<Vec<Fs>> {
     let mut fs = Vec::new();
     for entry in PathBuf::from(SYSFS_BCACHEFS_ROOT).read_dir()? {
-        fs.push(Fs(Uuid::parse_str(entry?.file_name().to_str().unwrap())?));
+        fs.push(Fs(Uuid::parse_str(entry?.file_name().to_str().expect("sysfs entry is not uuid"))?));
     }
     Ok(fs)
 }
@@ -146,14 +150,12 @@ impl Fs {
         for entry in self.path().read_dir()? {
             let entry = entry?;
             let file_name = entry.file_name();
-            let file_name = file_name.to_str().unwrap();
-            if !file_name.starts_with("dev-") {
+            let file_name = file_name.to_str().expect("sysfs entry is not utf8");
+            let Some(device_no_str) = file_name.strip_prefix("dev-") else {
+                // file_name does not start with "dev-"
                 continue;
-            }
-            let device_no: usize = file_name
-                .strip_prefix("dev-")
-                .unwrap()
-                .parse()
+            };
+            let device_no: usize = device_no_str.parse()
                 .with_context(|| format!("file_name={file_name:?}"))?;
             devices.push(Device {
                 fs: self,
@@ -176,9 +178,9 @@ impl Device<'_> {
             .join("block")
             .read_link()?
             .file_name()
-            .unwrap()
+            .expect("path ends in ..")
             .to_str()
-            .unwrap()
+            .expect("sysfs entry is not utf8")
             .to_string();
         let label = std::fs::read_to_string(self.path().join("label"))
             .with_context(|| "reading dev-$x/label")?
@@ -202,7 +204,7 @@ impl Device<'_> {
         let mut metrics = Vec::new();
         let s = std::fs::read_to_string(self.path().join("alloc_debug"))?;
         let mut lines = s.lines();
-        let header: Vec<&str> = lines.next().unwrap().split_whitespace().collect();
+        let header: Vec<&str> = lines.next().expect("no header line in dev-?/alloc_debug").split_whitespace().collect();
         assert_eq!(header, ["buckets", "sectors", "fragmented"]);
         for line in lines {
             if line.is_empty() {
