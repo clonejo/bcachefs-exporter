@@ -209,8 +209,8 @@ impl Device<'_> {
                 break;
             }
             let cells: Vec<_> = line.split_whitespace().collect();
-            match &cells[..] {
-                &[type_, _buckets, sectors, _fragmented] => {
+            match cells[..] {
+                [type_, _buckets, sectors, _fragmented] => {
                     let mut labels = device_labels.clone();
                     labels.push(("type", type_.to_string()));
                     metrics.push(Metric {
@@ -219,7 +219,7 @@ impl Device<'_> {
                         value: sectors_to_bytes(sectors)?,
                     });
                 }
-                &["capacity", buckets] => {
+                ["capacity", buckets] => {
                     metrics.push(Metric {
                         name: "bcachefs_dev_capacity",
                         labels: device_labels.to_vec(),
