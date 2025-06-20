@@ -9,7 +9,6 @@ use axum::{
 use byte_unit::Byte;
 use clap::Parser;
 use http::{header, status::StatusCode};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
 use std::{net::SocketAddr, path::PathBuf};
@@ -29,13 +28,7 @@ struct Cli {
 }
 
 pub(crate) async fn serve(listen: &SocketAddr) {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "example_form=debug".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    env_logger::init();
 
     // build our application with some routes
     let app = Router::new().route("/metrics", get(http_metrics));
@@ -44,7 +37,7 @@ pub(crate) async fn serve(listen: &SocketAddr) {
     let listener = tokio::net::TcpListener::bind(listen)
         .await
         .expect("Could not bind to socket.");
-    tracing::info!("opening socket on {:?}", listener.local_addr());
+    log::info!("opening socket on {:?}", listener.local_addr());
     axum::serve(listener, app).await.unwrap();
 }
 
