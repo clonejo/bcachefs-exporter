@@ -6,7 +6,6 @@ use axum::{
     routing::get,
     Router,
 };
-use byte_unit::Byte;
 use clap::Parser;
 use http::{header, status::StatusCode};
 use uuid::Uuid;
@@ -192,16 +191,14 @@ impl Fs {
                     metrics.push(Metric {
                         name: "bcachefs_reconcile_pending_data",
                         labels: labels.clone(),
-                        value: Byte::parse_str(data, true)
-                            .with_context(|| format!("data={data:?}"))?
-                            .as_u64() as f64,
+                        value: parse_bytes(data).with_context(|| format!("data={data:?}"))? as f64,
                     });
                     metrics.push(Metric {
                         name: "bcachefs_reconcile_pending_metadata",
                         labels,
-                        value: Byte::parse_str(metadata, true)
+                        value: parse_bytes(metadata)
                             .with_context(|| format!("metadata={metadata:?}"))?
-                            .as_u64() as f64,
+                            as f64,
                     });
                 }
                 _ => {
@@ -290,9 +287,8 @@ impl Device<'_> {
     fn bucket_size(&self) -> Result<u64> {
         let file_content = std::fs::read_to_string(self.path().join("bucket_size"))
             .with_context(|| "reading dev-$x/bucket_size")?;
-        Ok(Byte::parse_str(&file_content, true)
-            .with_context(|| format!("file_content={file_content:?}"))?
-            .as_u64())
+        let s = file_content.trim();
+        Ok(parse_bytes(s).with_context(|| format!("file_content={file_content:?}"))?)
     }
     fn buckets_to_bytes(&self, sectors: &str) -> Result<f64> {
         let sectors: u64 = sectors
@@ -309,4 +305,18 @@ fn sectors_to_bytes(sectors: &str) -> Result<f64> {
         .parse::<usize>()
         .with_context(|| format!("sectors={sectors:?}"))?
         << 9) as f64)
+}
+
+fn parse_bytes(s: &str) -> Result<u64> {
+    Ok(parse_size::Config::new().with_binary().parse_size(s)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parse_bytes;
+
+    #[test]
+    fn test_byte_parse() {
+        assert_eq!(parse_bytes("1k").unwrap(), 1024);
+    }
 }
