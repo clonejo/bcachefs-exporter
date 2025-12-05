@@ -138,7 +138,7 @@ impl Fs {
         PathBuf::from(SYSFS_BCACHEFS_ROOT).join(self.0.to_string())
     }
 
-    fn find_devices(&self) -> Result<Vec<Device>> {
+    fn find_devices(&self) -> Result<Vec<Device<'_>>> {
         let mut devices = Vec::new();
         for entry in self.path().read_dir()? {
             let entry = entry?;
