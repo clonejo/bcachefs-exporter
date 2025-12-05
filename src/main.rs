@@ -134,6 +134,7 @@ struct Fs(Uuid);
 impl Fs {
     fn get_metrics(&self) -> Result<Vec<Metric>> {
         let mut metrics = Vec::new();
+        metrics.append(&mut self.reconcile_metrics()?);
         for device in self.find_devices()? {
             metrics.append(&mut device.get_metrics()?);
         }
@@ -162,6 +163,53 @@ impl Fs {
             });
         }
         Ok(devices)
+    }
+
+    /// added in bcachefs 1.33.0
+    fn reconcile_metrics(&self) -> Result<Vec<Metric>> {
+        let fs_labels = vec![("fs", self.0.to_string())];
+        let mut metrics = Vec::new();
+        let s = std::fs::read_to_string(self.path().join("reconcile_status"))?;
+        let mut lines = s.lines();
+
+        let header: Vec<&str> = lines
+            .next()
+            .expect("no header line in reconcile_status")
+            .split_whitespace()
+            .collect();
+        assert_eq!(header, ["pending", "work:", "data", "metadata"]);
+        for line in lines {
+            if line.is_empty() {
+                // end of table, we ignore the waiting time and stacktrace that follows
+                break;
+            }
+            let cells: Vec<_> = line.split_whitespace().collect();
+            match cells[..] {
+                [type_, data, metadata] => {
+                    let type_ = type_.trim_end_matches(':');
+                    let mut labels = fs_labels.clone();
+                    labels.push(("type", type_.to_string()));
+                    metrics.push(Metric {
+                        name: "bcachefs_reconcile_pending_data",
+                        labels: labels.clone(),
+                        value: Byte::parse_str(data, true)
+                            .with_context(|| format!("data={data:?}"))?
+                            .as_u64() as f64,
+                    });
+                    metrics.push(Metric {
+                        name: "bcachefs_reconcile_pending_metadata",
+                        labels,
+                        value: Byte::parse_str(metadata, true)
+                            .with_context(|| format!("metadata={metadata:?}"))?
+                            .as_u64() as f64,
+                    });
+                }
+                _ => {
+                    panic!("can't handle line {line}")
+                }
+            }
+        }
+        Ok(metrics)
     }
 }
 #[derive(Debug)]
