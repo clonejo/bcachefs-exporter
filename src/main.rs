@@ -288,7 +288,7 @@ impl Device<'_> {
         let file_content = std::fs::read_to_string(self.path().join("bucket_size"))
             .with_context(|| "reading dev-$x/bucket_size")?;
         let s = file_content.trim();
-        Ok(parse_bytes(s).with_context(|| format!("file_content={file_content:?}"))?)
+        parse_bytes(s).with_context(|| format!("file_content={file_content:?}"))
     }
     fn buckets_to_bytes(&self, sectors: &str) -> Result<f64> {
         let sectors: u64 = sectors
